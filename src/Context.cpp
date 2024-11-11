@@ -5,7 +5,7 @@
 #include <spdlog/sinks/rotating_file_sink.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
 #include "install_config.h"
-#include "debug/GfxDebugger.h"
+#include "graphic/Fast3D/debug/GfxDebugger.h"
 #include "graphic/Fast3D/Fast3dWindow.h"
 
 #ifdef _WIN32
@@ -44,11 +44,11 @@ std::shared_ptr<Context> Context::CreateInstance(const std::string name, const s
                                                  const std::string configFilePath,
                                                  const std::vector<std::string>& otrFiles,
                                                  const std::unordered_set<uint32_t>& validHashes,
-                                                 uint32_t reservedThreadCount) {
+                                                 uint32_t reservedThreadCount, AudioSettings audioSettings) {
     if (mContext.expired()) {
         auto shared = std::make_shared<Context>(name, shortName, configFilePath);
         mContext = shared;
-        shared->Init(otrFiles, validHashes, reservedThreadCount);
+        shared->Init(otrFiles, validHashes, reservedThreadCount, audioSettings);
         return shared;
     }
 
@@ -71,11 +71,11 @@ std::shared_ptr<Context> Context::CreateUninitializedInstance(const std::string 
 }
 
 Context::Context(std::string name, std::string shortName, std::string configFilePath)
-    : mName(std::move(name)), mShortName(std::move(shortName)), mConfigFilePath(std::move(configFilePath)) {
+    : mConfigFilePath(std::move(configFilePath)), mName(std::move(name)), mShortName(std::move(shortName)) {
 }
 
 void Context::Init(const std::vector<std::string>& otrFiles, const std::unordered_set<uint32_t>& validHashes,
-                   uint32_t reservedThreadCount) {
+                   uint32_t reservedThreadCount, AudioSettings audioSettings) {
     InitLogging();
     InitConfiguration();
     InitConsoleVariables();
@@ -84,7 +84,7 @@ void Context::Init(const std::vector<std::string>& otrFiles, const std::unordere
     InitCrashHandler();
     InitConsole();
     InitWindow();
-    InitAudio();
+    InitAudio(audioSettings);
     InitGfxDebugger();
 }
 
@@ -227,12 +227,12 @@ void Context::InitCrashHandler() {
     mCrashHandler = std::make_shared<CrashHandler>();
 }
 
-void Context::InitAudio() {
+void Context::InitAudio(AudioSettings settings) {
     if (GetAudio() != nullptr) {
         return;
     }
 
-    mAudio = std::make_shared<Audio>();
+    mAudio = std::make_shared<Audio>(settings);
     GetAudio()->Init();
 }
 
@@ -241,7 +241,7 @@ void Context::InitGfxDebugger() {
         return;
     }
 
-    mGfxDebugger = std::make_shared<LUS::GfxDebugger>();
+    mGfxDebugger = std::make_shared<Fast::GfxDebugger>();
 }
 
 void Context::InitConsole() {
@@ -298,7 +298,7 @@ std::shared_ptr<Audio> Context::GetAudio() {
     return mAudio;
 }
 
-std::shared_ptr<LUS::GfxDebugger> Context::GetGfxDebugger() {
+std::shared_ptr<Fast::GfxDebugger> Context::GetGfxDebugger() {
     return mGfxDebugger;
 }
 

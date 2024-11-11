@@ -9,7 +9,7 @@
 #include "window/gui/Gui.h"
 
 namespace Ship {
-enum class WindowBackend { DX11, DX12, GLX_OPENGL, SDL_OPENGL, SDL_METAL, GX2, BACKEND_COUNT };
+enum class WindowBackend { FAST3D_DXGI_DX11, FAST3D_SDL_OPENGL, FAST3D_SDL_METAL, WINDOW_BACKEND_COUNT };
 
 class Config;
 
@@ -42,12 +42,15 @@ class Window {
 
     WindowBackend GetWindowBackend();
     std::shared_ptr<std::vector<WindowBackend>> GetAvailableWindowBackends();
+    bool IsAvailableWindowBackend(int32_t backendId);
     int32_t GetLastScancode();
     void SetLastScancode(int32_t scanCode);
     void ToggleFullscreen();
     float GetCurrentAspectRatio();
     void SaveWindowToConfig();
     std::shared_ptr<Gui> GetGui();
+    bool ShouldForceCursorVisibility();
+    void SetForceCursorVisibility(bool visible);
 
   protected:
     void SetWindowBackend(WindowBackend backend);
@@ -61,5 +64,6 @@ class Window {
     // Hold a reference to Config because Window has a Save function called on Context destructor, where the singleton
     // is no longer available.
     std::shared_ptr<Config> mConfig;
+    bool mForceCursorVisibility;
 };
 } // namespace Ship

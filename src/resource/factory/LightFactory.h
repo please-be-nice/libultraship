@@ -4,7 +4,7 @@
 #include "resource/ResourceFactoryBinary.h"
 
 namespace LUS {
-class ResourceFactoryBinaryArrayV0 : public Ship::ResourceFactoryBinary {
+class ResourceFactoryBinaryLightV0 : public Ship::ResourceFactoryBinary {
   public:
     std::shared_ptr<Ship::IResource> ReadResource(std::shared_ptr<Ship::File> file) override;
 };

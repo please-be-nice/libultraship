@@ -82,6 +82,7 @@ class Gui {
     void AddGuiWindow(std::shared_ptr<GuiWindow> guiWindow);
     void RemoveGuiWindow(std::shared_ptr<GuiWindow> guiWindow);
     void RemoveGuiWindow(const std::string& name);
+    void RemoveAllGuiWindows();
     void LoadGuiTexture(const std::string& name, const std::string& path, const ImVec4& tint);
     bool HasTextureByName(const std::string& name);
     void LoadGuiTexture(const std::string& name, const LUS::Texture& tex, const ImVec4& tint);
@@ -97,12 +98,18 @@ class Gui {
     bool ImGuiGamepadNavigationEnabled();
     void BlockImGuiGamepadNavigation();
     void UnblockImGuiGamepadNavigation();
+    void SetMenu(std::shared_ptr<GuiWindow> menu);
+    bool GetMenuOrMenubarVisible();
+    std::shared_ptr<GuiWindow> GetMenu();
+    bool GetPadBtnTogglesMenu();
+    void SetPadBtnTogglesMenu();
+
+    void ImGuiBackendNewFrame();
+    void ImGuiWMNewFrame();
 
   protected:
     void ImGuiWMInit();
     void ImGuiBackendInit();
-    void ImGuiBackendNewFrame();
-    void ImGuiWMNewFrame();
     void ImGuiRenderDrawData(ImDrawData* data);
     ImTextureID GetTextureById(int32_t id);
     void ApplyResolutionChanges();
@@ -114,8 +121,11 @@ class Gui {
     bool mNeedsConsoleVariableSave;
     std::shared_ptr<GameOverlay> mGameOverlay;
     std::shared_ptr<GuiMenuBar> mMenuBar;
+    std::shared_ptr<GuiWindow> mMenu;
     std::unordered_map<std::string, GuiTextureMetadata> mGuiTextures;
     std::map<std::string, std::shared_ptr<GuiWindow>> mGuiWindows;
+    bool mPadBtnTogglesMenu = false;
+    ImVec2 mTemporaryWindowPos;
 };
 } // namespace Ship
 

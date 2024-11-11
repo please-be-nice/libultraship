@@ -84,11 +84,13 @@ Gui::Gui(std::vector<std::shared_ptr<GuiWindow>> guiWindows) : mNeedsConsoleVari
     }
 
     if (GetGuiWindow("Console") == nullptr) {
-        AddGuiWindow(std::make_shared<ConsoleWindow>(CVAR_CONSOLE_WINDOW_OPEN, "Console"));
+        AddGuiWindow(std::make_shared<ConsoleWindow>(CVAR_CONSOLE_WINDOW_OPEN, "Console", ImVec2(520, 600),
+                                                     ImGuiWindowFlags_NoFocusOnAppearing));
     }
 
     if (GetGuiWindow("GfxDebuggerWindow") == nullptr) {
-        AddGuiWindow(std::make_shared<LUS::GfxDebuggerWindow>(CVAR_GFX_DEBUGGER_WINDOW_OPEN, "GfxDebuggerWindow"));
+        AddGuiWindow(std::make_shared<LUS::GfxDebuggerWindow>(CVAR_GFX_DEBUGGER_WINDOW_OPEN, "GfxDebuggerWindow",
+                                                              ImVec2(520, 600)));
     }
 }
 
@@ -127,15 +129,16 @@ void Gui::Init(GuiWindowInitData windowImpl) {
     CVarSetInteger(CVAR_IMGUI_CONTROLLER_NAV, 1);
 #endif
 
-    auto imguiIniPath = Ship::Context::GetPathRelativeToAppDirectory("imgui.ini");
-    auto imguiLogPath = Ship::Context::GetPathRelativeToAppDirectory("imgui_log.txt");
+    auto imguiIniPath = Context::GetPathRelativeToAppDirectory("imgui.ini");
+    auto imguiLogPath = Context::GetPathRelativeToAppDirectory("imgui_log.txt");
     mImGuiIo->IniFilename = strcpy(new char[imguiIniPath.length() + 1], imguiIniPath.c_str());
     mImGuiIo->LogFilename = strcpy(new char[imguiLogPath.length() + 1], imguiLogPath.c_str());
 
     if (SupportsViewports() && CVarGetInteger(CVAR_ENABLE_MULTI_VIEWPORTS, 1)) {
         mImGuiIo->ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     }
-    if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuBar() && GetMenuBar()->IsVisible()) {
+
+    if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()) {
         mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     } else {
         mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
@@ -160,20 +163,20 @@ void Gui::Init(GuiWindowInitData windowImpl) {
 
 void Gui::ImGuiWMInit() {
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
-        case WindowBackend::SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
             SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
             SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
             ImGui_ImplSDL2_InitForOpenGL(static_cast<SDL_Window*>(mImpl.Opengl.Window), mImpl.Opengl.Context);
             break;
 #if __APPLE__
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_METAL:
             SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "1");
             SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
             ImGui_ImplSDL2_InitForMetal(static_cast<SDL_Window*>(mImpl.Metal.Window));
             break;
 #endif
 #if defined(ENABLE_DX11) || defined(ENABLE_DX12)
-        case WindowBackend::DX11:
+        case WindowBackend::FAST3D_DXGI_DX11:
             ImGui_ImplWin32_Init(mImpl.Dx11.Window);
             break;
 #endif
@@ -185,7 +188,7 @@ void Gui::ImGuiWMInit() {
 void Gui::ImGuiBackendInit() {
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
 #ifdef ENABLE_OPENGL
-        case WindowBackend::SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
 #ifdef __APPLE__
             ImGui_ImplOpenGL3_Init("#version 410 core");
 #elif USE_OPENGLES
@@ -197,13 +200,13 @@ void Gui::ImGuiBackendInit() {
 #endif
 
 #ifdef __APPLE__
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_METAL:
             Metal_Init(mImpl.Metal.Renderer);
             break;
 #endif
 
-#if defined(ENABLE_DX11) || defined(ENABLE_DX12)
-        case WindowBackend::DX11:
+#ifdef ENABLE_DX11
+        case WindowBackend::FAST3D_DXGI_DX11:
             ImGui_ImplDX11_Init(static_cast<ID3D11Device*>(mImpl.Dx11.Device),
                                 static_cast<ID3D11DeviceContext*>(mImpl.Dx11.DeviceContext));
             break;
@@ -246,10 +249,10 @@ bool Gui::SupportsViewports() {
 #endif
 
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
-        case WindowBackend::DX11:
+        case WindowBackend::FAST3D_DXGI_DX11:
             return true;
-        case WindowBackend::SDL_OPENGL:
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_METAL:
             return true;
         default:
             return false;
@@ -263,15 +266,15 @@ void Gui::Update(WindowEvent event) {
     }
 
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
-        case WindowBackend::SDL_OPENGL:
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_METAL:
             ImGui_ImplSDL2_ProcessEvent(static_cast<const SDL_Event*>(event.Sdl.Event));
 #if defined(__ANDROID__) || defined(__IOS__)
-            Ship::Mobile::ImGuiProcessEvent(mImGuiIo->WantTextInput);
+            Mobile::ImGuiProcessEvent(mImGuiIo->WantTextInput);
 #endif
             break;
-#if defined(ENABLE_DX11) || defined(ENABLE_DX12)
-        case WindowBackend::DX11:
+#ifdef ENABLE_DX11
+        case WindowBackend::FAST3D_DXGI_DX11:
             ImGui_ImplWin32_WndProcHandler(static_cast<HWND>(event.Win32.Handle), event.Win32.Msg, event.Win32.Param1,
                                            event.Win32.Param2);
             break;
@@ -290,16 +293,19 @@ void Gui::BlockImGuiGamepadNavigation() {
 }
 
 void Gui::UnblockImGuiGamepadNavigation() {
-    if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuBar() && GetMenuBar()->IsVisible()) {
+    if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()) {
         mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
     }
 }
 
 void Gui::DrawMenu() {
-    Ship::Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console")->Update();
+    // TODO: These 3 functions are placed here temporarily until future GUI/Frame refactoring
+    // is finished and gives these a new home
     ImGuiBackendNewFrame();
     ImGuiWMNewFrame();
     ImGui::NewFrame();
+
+    Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console")->Update();
 
     const std::shared_ptr<Window> wnd = Context::GetInstance()->GetWindow();
     const std::shared_ptr<Config> conf = Context::GetInstance()->GetConfig();
@@ -323,7 +329,7 @@ void Gui::DrawMenu() {
     ImGui::Begin("Main - Deck", nullptr, windowFlags);
     ImGui::PopStyleVar(3);
 
-    ImVec2 topLeftPos = ImGui::GetWindowPos();
+    mTemporaryWindowPos = ImGui::GetWindowPos();
 
     const ImGuiID dockId = ImGui::GetID("main_dock");
 
@@ -337,14 +343,24 @@ void Gui::DrawMenu() {
     }
 
     ImGui::DockSpace(dockId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_NoDockingInCentralNode);
-    
-    if (ImGui::IsKeyPressed(TOGGLE_BTN) ||
+
+    if (ImGui::IsKeyPressed(TOGGLE_BTN) || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
         (ImGui::IsKeyPressed(TOGGLE_PAD_BTN) && CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0))) {
-        GetMenuBar()->ToggleVisibility();
-        if (wnd->IsFullscreen()) {
-            Context::GetInstance()->GetWindow()->SetCursorVisibility(GetMenuBar() && GetMenuBar()->IsVisible());
+        if (ImGui::IsKeyPressed(TOGGLE_BTN) || (ImGui::IsKeyPressed(TOGGLE_PAD_BTN) && !GetPadBtnTogglesMenu())) {
+            if (GetMenuBar()) {
+                GetMenuBar()->ToggleVisibility();
+            }
+        } else if (ImGui::IsKeyPressed(ImGuiKey_Escape) ||
+                   (ImGui::IsKeyPressed(TOGGLE_PAD_BTN) && GetPadBtnTogglesMenu())) {
+            if (GetMenu()) {
+                GetMenu()->ToggleVisibility();
+            }
         }
-        if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuBar() && GetMenuBar()->IsVisible()) {
+        if (wnd->IsFullscreen()) {
+            Context::GetInstance()->GetWindow()->SetCursorVisibility(GetMenuOrMenubarVisible() ||
+                                                                     wnd->ShouldForceCursorVisibility());
+        }
+        if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()) {
             mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
         } else {
             mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
@@ -354,21 +370,27 @@ void Gui::DrawMenu() {
 #if __APPLE__
     if ((ImGui::IsKeyDown(ImGuiKey_LeftSuper) || ImGui::IsKeyDown(ImGuiKey_RightSuper)) &&
         ImGui::IsKeyPressed(ImGuiKey_R, false)) {
-        std::reinterpret_pointer_cast<Ship::ConsoleWindow>(
-            Ship::Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
+        std::reinterpret_pointer_cast<ConsoleWindow>(
+            Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
             ->Dispatch("reset");
     }
 #else
     if ((ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) &&
         ImGui::IsKeyPressed(ImGuiKey_R, false)) {
-        std::reinterpret_pointer_cast<Ship::ConsoleWindow>(
-            Ship::Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
+        std::reinterpret_pointer_cast<ConsoleWindow>(
+            Context::GetInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
             ->Dispatch("reset");
     }
 #endif
 
     if (GetMenuBar()) {
+        GetMenuBar()->Update();
         GetMenuBar()->Draw();
+    }
+
+    if (GetMenu()) {
+        GetMenu()->Update();
+        GetMenu()->Draw();
     }
 
     ImGui::End();
@@ -377,75 +399,24 @@ void Gui::DrawMenu() {
         windowIter.second->Update();
         windowIter.second->Draw();
     }
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
-    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-                             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground;
-    ImGui::Begin("Main Game", nullptr, flags);
-    ImGui::PopStyleVar(3);
-    ImGui::PopStyleColor();
-
-    ImVec2 mainPos = ImGui::GetWindowPos();
-    mainPos.x -= topLeftPos.x;
-    mainPos.y -= topLeftPos.y;
-    ImVec2 size = ImGui::GetContentRegionAvail();
-    gfx_current_dimensions.width = (uint32_t)(size.x * gfx_current_dimensions.internal_mul);
-    gfx_current_dimensions.height = (uint32_t)(size.y * gfx_current_dimensions.internal_mul);
-    gfx_current_game_window_viewport.x = (int16_t)mainPos.x;
-    gfx_current_game_window_viewport.y = (int16_t)mainPos.y;
-    gfx_current_game_window_viewport.width = (int16_t)size.x;
-    gfx_current_game_window_viewport.height = (int16_t)size.y;
-
-    if (CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".Enabled", 0)) {
-        ApplyResolutionChanges();
-    }
-
-    switch (CVarGetInteger(CVAR_LOW_RES_MODE, 0)) {
-        case 1: { // N64 Mode
-            gfx_current_dimensions.width = 320;
-            gfx_current_dimensions.height = 240;
-            /*
-            const int sw = size.y * 320 / 240;
-            gfx_current_game_window_viewport.x += ((int)size.x - sw) / 2;
-            gfx_current_game_window_viewport.width = sw;*/
-            break;
-        }
-        case 2: { // 240p Widescreen
-            const int vertRes = 240;
-            gfx_current_dimensions.width = vertRes * size.x / size.y;
-            gfx_current_dimensions.height = vertRes;
-            break;
-        }
-        case 3: { // 480p Widescreen
-            const int vertRes = 480;
-            gfx_current_dimensions.width = vertRes * size.x / size.y;
-            gfx_current_dimensions.height = vertRes;
-            break;
-        }
-    }
-
-    GetGameOverlay()->Draw();
 }
 
 void Gui::ImGuiBackendNewFrame() {
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
 #ifdef ENABLE_OPENGL
-        case WindowBackend::SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
             ImGui_ImplOpenGL3_NewFrame();
             break;
 #endif
 
-#if defined(ENABLE_DX11) || defined(ENABLE_DX12)
-        case WindowBackend::DX11:
+#ifdef ENABLE_DX11
+        case WindowBackend::FAST3D_DXGI_DX11:
             ImGui_ImplDX11_NewFrame();
             break;
 #endif
 
 #ifdef __APPLE__
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_METAL:
             Metal_NewFrame(mImpl.Metal.Renderer);
             break;
 #endif
@@ -456,12 +427,12 @@ void Gui::ImGuiBackendNewFrame() {
 
 void Gui::ImGuiWMNewFrame() {
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
-        case WindowBackend::SDL_OPENGL:
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_METAL:
             ImGui_ImplSDL2_NewFrame();
             break;
-#if defined(ENABLE_DX11) || defined(ENABLE_DX12)
-        case WindowBackend::DX11:
+#ifdef ENABLE_DX11
+        case WindowBackend::FAST3D_DXGI_DX11:
             ImGui_ImplWin32_NewFrame();
             break;
 #endif
@@ -535,12 +506,12 @@ int16_t Gui::GetIntegerScaleFactor() {
             // The same comparison as below, but checked against the configured factor
             if (((float)gfx_current_game_window_viewport.height / gfx_current_game_window_viewport.width) <
                 ((float)gfx_current_dimensions.height / gfx_current_dimensions.width)) {
-                if (factor > gfx_current_game_window_viewport.height / gfx_current_dimensions.height) {
+                if ((uint32_t)factor > gfx_current_game_window_viewport.height / gfx_current_dimensions.height) {
                     // Scale to window height
                     factor = gfx_current_game_window_viewport.height / gfx_current_dimensions.height;
                 }
             } else {
-                if (factor > gfx_current_game_window_viewport.width / gfx_current_dimensions.width) {
+                if ((uint32_t)factor > gfx_current_game_window_viewport.width / gfx_current_dimensions.width) {
                     // Scale to window width
                     factor = gfx_current_game_window_viewport.width / gfx_current_dimensions.width;
                 }
@@ -575,8 +546,60 @@ int16_t Gui::GetIntegerScaleFactor() {
 }
 
 void Gui::StartFrame() {
-    const ImVec2 mainPos = ImGui::GetWindowPos();
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 0.0f);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.0f, 0.0f, 0.0f, 0.0f));
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                             ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoBackground;
+
+    ImGui::Begin("Main Game", nullptr, flags);
+    ImGui::PopStyleVar(3);
+    ImGui::PopStyleColor();
+
+    ImVec2 mainPos = ImGui::GetWindowPos();
+    mainPos.x -= mTemporaryWindowPos.x;
+    mainPos.y -= mTemporaryWindowPos.y;
     ImVec2 size = ImGui::GetContentRegionAvail();
+    gfx_current_dimensions.width = (uint32_t)(size.x * gfx_current_dimensions.internal_mul);
+    gfx_current_dimensions.height = (uint32_t)(size.y * gfx_current_dimensions.internal_mul);
+    gfx_current_game_window_viewport.x = (int16_t)mainPos.x;
+    gfx_current_game_window_viewport.y = (int16_t)mainPos.y;
+    gfx_current_game_window_viewport.width = (int16_t)size.x;
+    gfx_current_game_window_viewport.height = (int16_t)size.y;
+
+    if (CVarGetInteger(CVAR_PREFIX_ADVANCED_RESOLUTION ".Enabled", 0)) {
+        ApplyResolutionChanges();
+    }
+
+    switch (CVarGetInteger(CVAR_LOW_RES_MODE, 0)) {
+        case 1: { // N64 Mode
+            gfx_current_dimensions.width = 320;
+            gfx_current_dimensions.height = 240;
+            /*
+            const int sw = size.y * 320 / 240;
+            gfx_current_game_window_viewport.x += ((int)size.x - sw) / 2;
+            gfx_current_game_window_viewport.width = sw;*/
+            break;
+        }
+        case 2: { // 240p Widescreen
+            const int vertRes = 240;
+            gfx_current_dimensions.width = vertRes * size.x / size.y;
+            gfx_current_dimensions.height = vertRes;
+            break;
+        }
+        case 3: { // 480p Widescreen
+            const int vertRes = 480;
+            gfx_current_dimensions.width = vertRes * size.x / size.y;
+            gfx_current_dimensions.height = vertRes;
+            break;
+        }
+    }
+
+    GetGameOverlay()->Draw();
+
+    mainPos = ImGui::GetWindowPos();
+    size = ImGui::GetContentRegionAvail();
     ImVec2 pos = ImVec2(0, 0);
     if (CVarGetInteger(CVAR_LOW_RES_MODE, 0) == 1) { // N64 Mode takes priority
         const float sw = size.y * 320.0f / 240.0f;
@@ -621,7 +644,7 @@ void Gui::RenderViewports() {
     ImGuiRenderDrawData(ImGui::GetDrawData());
     if (mImGuiIo->ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
         WindowBackend backend = Context::GetInstance()->GetWindow()->GetWindowBackend();
-        if ((backend == WindowBackend::SDL_OPENGL || backend == WindowBackend::SDL_METAL) &&
+        if ((backend == WindowBackend::FAST3D_SDL_OPENGL || backend == WindowBackend::FAST3D_SDL_METAL) &&
             mImpl.Opengl.Context != nullptr) {
             SDL_Window* backupCurrentWindow = SDL_GL_GetCurrentWindow();
             SDL_GLContext backupCurrentContext = SDL_GL_GetCurrentContext();
@@ -637,14 +660,21 @@ void Gui::RenderViewports() {
     }
 }
 
+void Gui::EndFrame() {
+    ImGui::EndFrame();
+    if (mImGuiIo->ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
+        ImGui::UpdatePlatformWindows();
+    }
+}
+
 ImTextureID Gui::GetTextureById(int32_t id) {
 #ifdef ENABLE_DX11
-    if (Context::GetInstance()->GetWindow()->GetWindowBackend() == WindowBackend::DX11) {
+    if (Context::GetInstance()->GetWindow()->GetWindowBackend() == WindowBackend::FAST3D_DXGI_DX11) {
         return gfx_d3d11_get_texture_by_id(id);
     }
 #endif
 #ifdef __APPLE__
-    if (Context::GetInstance()->GetWindow()->GetWindowBackend() == WindowBackend::SDL_METAL) {
+    if (Context::GetInstance()->GetWindow()->GetWindowBackend() == WindowBackend::FAST3D_SDL_METAL) {
         return gfx_metal_get_texture_by_id(id);
     }
 #endif
@@ -674,31 +704,24 @@ void Gui::ImGuiRenderDrawData(ImDrawData* data) {
     switch (Context::GetInstance()->GetWindow()->GetWindowBackend()) {
 
 #ifdef ENABLE_OPENGL
-        case WindowBackend::SDL_OPENGL:
+        case WindowBackend::FAST3D_SDL_OPENGL:
             ImGui_ImplOpenGL3_RenderDrawData(data);
             break;
 #endif
 
 #ifdef __APPLE__
-        case WindowBackend::SDL_METAL:
+        case WindowBackend::FAST3D_SDL_METAL:
             Metal_RenderDrawData(data);
             break;
 #endif
 
-#if defined(ENABLE_DX11) || defined(ENABLE_DX12)
-        case WindowBackend::DX11:
+#ifdef ENABLE_DX11
+        case WindowBackend::FAST3D_DXGI_DX11:
             ImGui_ImplDX11_RenderDrawData(data);
             break;
 #endif
         default:
             break;
-    }
-}
-
-void Gui::EndFrame() {
-    ImGui::EndFrame();
-    if (mImGuiIo->ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-        ImGui::UpdatePlatformWindows();
     }
 }
 
@@ -722,6 +745,10 @@ void Gui::RemoveGuiWindow(std::shared_ptr<GuiWindow> guiWindow) {
 
 void Gui::RemoveGuiWindow(const std::string& name) {
     mGuiWindows.erase(name);
+}
+
+void Ship::Gui::RemoveAllGuiWindows() {
+    mGuiWindows.clear();
 }
 
 std::shared_ptr<GuiWindow> Gui::GetGuiWindow(const std::string& name) {
@@ -895,11 +922,43 @@ void Gui::SetMenuBar(std::shared_ptr<GuiMenuBar> menuBar) {
     }
 
     if (Context::GetInstance()->GetWindow()->IsFullscreen()) {
-        Context::GetInstance()->GetWindow()->SetCursorVisibility(GetMenuBar() && GetMenuBar()->IsVisible());
+        Context::GetInstance()->GetWindow()->SetCursorVisibility(
+            (GetMenuBar() && GetMenuBar()->IsVisible()) ||
+            Context::GetInstance()->GetWindow()->ShouldForceCursorVisibility());
+    }
+}
+
+void Gui::SetMenu(std::shared_ptr<GuiWindow> menu) {
+    mMenu = menu;
+
+    if (GetMenu()) {
+        GetMenu()->Init();
+    }
+
+    if (Context::GetInstance()->GetWindow()->IsFullscreen()) {
+        Context::GetInstance()->GetWindow()->SetCursorVisibility(
+            (GetMenu() && GetMenu()->IsVisible()) ||
+            Context::GetInstance()->GetWindow()->ShouldForceCursorVisibility());
     }
 }
 
 std::shared_ptr<GuiMenuBar> Gui::GetMenuBar() {
     return mMenuBar;
+}
+
+bool Gui::GetMenuOrMenubarVisible() {
+    return (GetMenuBar() && GetMenuBar()->IsVisible()) || (GetMenu() && GetMenu()->IsVisible());
+}
+
+std::shared_ptr<GuiWindow> Gui::GetMenu() {
+    return mMenu;
+}
+
+bool Gui::GetPadBtnTogglesMenu() {
+    return mPadBtnTogglesMenu;
+}
+
+void Gui::SetPadBtnTogglesMenu() {
+    mPadBtnTogglesMenu = true;
 }
 } // namespace Ship

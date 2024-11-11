@@ -37,6 +37,7 @@
 #endif
 
 #define GFX_BACKEND_NAME "SDL"
+#define _100NANOSECONDS_IN_SECOND 10000000
 
 static SDL_Window* wnd;
 static SDL_GLContext ctx;
@@ -301,6 +302,11 @@ static void gfx_sdl_init(const char* game_name, const char* gfx_api_name, bool s
     window_width = width;
     window_height = height;
 
+#if SDL_VERSION_ATLEAST(2, 24, 0)
+    /* fix DPI scaling issues on Windows */
+    SDL_SetHint(SDL_HINT_WINDOWS_DPI_AWARENESS, "permonitorv2");
+#endif
+
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
@@ -526,8 +532,7 @@ static bool gfx_sdl_start_frame(void) {
 
 static uint64_t qpc_to_100ns(uint64_t qpc) {
     const uint64_t qpc_freq = SDL_GetPerformanceFrequency();
-    qpc *= 10000000;
-    return qpc / qpc_freq;
+    return qpc / qpc_freq * _100NANOSECONDS_IN_SECOND + qpc % qpc_freq * _100NANOSECONDS_IN_SECOND / qpc_freq;
 }
 
 static inline void sync_framerate_with_timer(void) {
@@ -554,10 +559,11 @@ static inline void sync_framerate_with_timer(void) {
     }
 
 #ifdef _WIN32
-    do {
+    t = qpc_to_100ns(SDL_GetPerformanceCounter());
+    while (t < next) {
         YieldProcessor(); // TODO: Find a way for other compilers, OSes and architectures
         t = qpc_to_100ns(SDL_GetPerformanceCounter());
-    } while (t < next);
+    }
 #endif
     t = qpc_to_100ns(SDL_GetPerformanceCounter());
     if (left > 0 && t - next < 10000) {
