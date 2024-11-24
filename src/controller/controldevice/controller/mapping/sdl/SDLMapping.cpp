@@ -47,7 +47,6 @@ bool SDLMapping::CloseController() {
     mController = nullptr;
 #ifdef __ANDROID__
     if(gyroSensor != nullptr){
-        SDL_Log("This");
         SDL_SensorClose(gyroSensor);
     }
 #endif

@@ -365,6 +365,13 @@ void Gui::DrawMenu() {
         } else {
             mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
         }
+#ifdef __ANDROID__
+        if(GetMenuOrMenubarVisible()){
+            Ship::Mobile::DisableTouchArea();
+        }else{
+            Ship::Mobile::EnableTouchArea();
+        }
+#endif
     }
 
 #if __APPLE__
