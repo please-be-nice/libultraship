@@ -30,7 +30,7 @@ void Ship::Mobile::ImGuiProcessEvent(bool wantsTextInput) {
 }
 
 #endif
-//#ifdef __ANDROID__
+#ifdef __ANDROID__
 #include <SDL_gamecontroller.h>
 #include <jni.h>
 
@@ -109,6 +109,7 @@ extern "C" void JNICALL Java_com_dishii_mm_MainActivity_detachController(JNIEnv 
     SDL_JoystickDetachVirtual(virtual_joystick_id);
     virtual_joystick = nullptr;
     virtual_joystick_id = -1;
+    isUsingTouchscreenControls = false;
 }
 
-//#endif
+#endif
