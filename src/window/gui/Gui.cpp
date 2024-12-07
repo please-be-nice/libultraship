@@ -351,6 +351,14 @@ void Gui::DrawMenu() {
         }
     }
 
+#ifdef __ANDROID__
+    if(GetMenuBar() && GetMenuBar()->IsVisible()){
+        LUS::Android::DisableTouchArea();
+    }else{
+        LUS::Android::EnableTouchArea();
+    }
+#endif
+
 #if __APPLE__
     if ((ImGui::IsKeyDown(ImGuiKey_LeftSuper) || ImGui::IsKeyDown(ImGuiKey_RightSuper)) &&
         ImGui::IsKeyPressed(ImGuiKey_R, false)) {
