@@ -54,6 +54,18 @@ void LUS::Android::adjustGyro(float gyroData[3]){
 #include <SDL_gamecontroller.h>
 #include <jni.h>
 
+void LUS::Android::Init() {
+    // None (add here Android initialization steps)
+}
+
+void LUS::Android::Exit() {
+    SDL_Event quit_event;
+    quit_event.type = SDL_QUIT;
+    SDL_PushEvent(&quit_event);
+    SDL_Quit();
+    exit(0);
+}
+
 bool LUS::Android::IsUsingTouchscreenControls(){
     return isUsingTouchscreenControls;
 }
