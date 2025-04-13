@@ -9,6 +9,8 @@ namespace Ship {
 
 class Mobile {
   public:
+    static void Init();
+    static void Exit();
     static void ImGuiProcessEvent(bool wantsTextInput);
     static bool IsUsingTouchscreenControls();
     static void EnableTouchArea();

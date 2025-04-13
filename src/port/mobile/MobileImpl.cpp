@@ -34,6 +34,18 @@ void Ship::Mobile::ImGuiProcessEvent(bool wantsTextInput) {
 #include <SDL_gamecontroller.h>
 #include <jni.h>
 
+void Ship::Mobile::Init() {
+    // None (add here Android initialization steps)
+}
+
+void Ship::Mobile::Exit() {
+    SDL_Event quit_event;
+    quit_event.type = SDL_QUIT;
+    SDL_PushEvent(&quit_event);
+    SDL_Quit();
+    exit(0);
+}
+
 bool Ship::Mobile::IsUsingTouchscreenControls(){
     return isUsingTouchscreenControls;
 }
