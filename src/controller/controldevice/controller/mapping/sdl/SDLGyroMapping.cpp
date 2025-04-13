@@ -7,17 +7,29 @@
 #include "utils/StringHelper.h"
 
 namespace Ship {
-SDLGyroMapping::SDLGyroMapping(ShipDeviceIndex shipDeviceIndex, uint8_t portIndex, float sensitivity,
-                               float neutralPitch, float neutralYaw, float neutralRoll)
-    : ControllerInputMapping(shipDeviceIndex), ControllerGyroMapping(shipDeviceIndex, portIndex, sensitivity),
-      SDLMapping(shipDeviceIndex), mNeutralPitch(neutralPitch), mNeutralYaw(neutralYaw), mNeutralRoll(neutralRoll) {
+SDLGyroMapping::SDLGyroMapping(uint8_t portIndex, float sensitivity, float neutralPitch, float neutralYaw,
+                               float neutralRoll)
+    : ControllerInputMapping(PhysicalDeviceType::SDLGamepad),
+      ControllerGyroMapping(PhysicalDeviceType::SDLGamepad, portIndex, sensitivity), mNeutralPitch(neutralPitch),
+      mNeutralYaw(neutralYaw), mNeutralRoll(neutralRoll) {
 }
 
 void SDLGyroMapping::Recalibrate() {
-    if (!ControllerLoaded()) {
-        mNeutralPitch = 0;
-        mNeutralYaw = 0;
-        mNeutralRoll = 0;
+    for (const auto& [instanceId, gamepad] :
+         Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
+             mPortIndex)) {
+        if (!SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)) {
+            continue;
+        }
+
+        // just use gyro on the first gyro supported device we find
+        float gyroData[3];
+        SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE);
+        SDL_GameControllerGetSensorData(gamepad, SDL_SENSOR_GYRO, gyroData, 3);
+
+        mNeutralPitch = gyroData[0];
+        mNeutralYaw = gyroData[1];
+        mNeutralRoll = gyroData[2];
         return;
     }
 
@@ -27,6 +39,10 @@ void SDLGyroMapping::Recalibrate() {
 #else
     SDL_GameControllerSetSensorEnabled(mController, SDL_SENSOR_GYRO, SDL_TRUE);
     SDL_GameControllerGetSensorData(mController, SDL_SENSOR_GYRO, gyroData, 3);
+    // if we didn't find a gyro device zero everything out
+    mNeutralPitch = 0;
+    mNeutralYaw = 0;
+    mNeutralRoll = 0;
 #endif
 
     mNeutralPitch = gyroData[0];
@@ -35,7 +51,7 @@ void SDLGyroMapping::Recalibrate() {
 }
 
 void SDLGyroMapping::UpdatePad(float& x, float& y) {
-    if (!ControllerLoaded() || Context::GetInstance()->GetControlDeck()->GamepadGameInputBlocked()) {
+    if (Context::GetInstance()->GetControlDeck()->GamepadGameInputBlocked()) {
         x = 0;
         y = 0;
         return;
@@ -47,22 +63,37 @@ void SDLGyroMapping::UpdatePad(float& x, float& y) {
 #else
     SDL_GameControllerSetSensorEnabled(mController, SDL_SENSOR_GYRO, SDL_TRUE);
     SDL_GameControllerGetSensorData(mController, SDL_SENSOR_GYRO, gyroData, 3);
+    for (const auto& [instanceId, gamepad] :
+         Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
+             mPortIndex)) {
+        if (!SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)) {
+            continue;
+        }
 #endif
 
-    x = (gyroData[0] - mNeutralPitch) * mSensitivity;
-    y = (gyroData[1] - mNeutralYaw) * mSensitivity;
+        // just use gyro on the first gyro supported device we find
+        float gyroData[3];
+        SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE);
+        SDL_GameControllerGetSensorData(gamepad, SDL_SENSOR_GYRO, gyroData, 3);
+
+        x = (gyroData[0] - mNeutralPitch) * mSensitivity;
+        y = (gyroData[1] - mNeutralYaw) * mSensitivity;
+        return;
+    }
+
+    // if we didn't find a gyro device zero everything out
+    x = 0;
+    y = 0;
 }
 
 std::string SDLGyroMapping::GetGyroMappingId() {
-    return StringHelper::Sprintf("P%d-LUSI%d", mPortIndex, ControllerInputMapping::mShipDeviceIndex);
+    return StringHelper::Sprintf("P%d", mPortIndex);
 }
 
 void SDLGyroMapping::SaveToConfig() {
     const std::string mappingCvarKey = CVAR_PREFIX_CONTROLLERS ".GyroMappings." + GetGyroMappingId();
 
     CVarSetString(StringHelper::Sprintf("%s.GyroMappingClass", mappingCvarKey.c_str()).c_str(), "SDLGyroMapping");
-    CVarSetInteger(StringHelper::Sprintf("%s.ShipDeviceIndex", mappingCvarKey.c_str()).c_str(),
-                   ControllerInputMapping::mShipDeviceIndex);
     CVarSetFloat(StringHelper::Sprintf("%s.Sensitivity", mappingCvarKey.c_str()).c_str(), mSensitivity);
     CVarSetFloat(StringHelper::Sprintf("%s.NeutralPitch", mappingCvarKey.c_str()).c_str(), mNeutralPitch);
     CVarSetFloat(StringHelper::Sprintf("%s.NeutralYaw", mappingCvarKey.c_str()).c_str(), mNeutralYaw);
@@ -75,7 +106,6 @@ void SDLGyroMapping::EraseFromConfig() {
     const std::string mappingCvarKey = CVAR_PREFIX_CONTROLLERS ".GyroMappings." + GetGyroMappingId();
 
     CVarClear(StringHelper::Sprintf("%s.GyroMappingClass", mappingCvarKey.c_str()).c_str());
-    CVarClear(StringHelper::Sprintf("%s.ShipDeviceIndex", mappingCvarKey.c_str()).c_str());
     CVarClear(StringHelper::Sprintf("%s.Sensitivity", mappingCvarKey.c_str()).c_str());
     CVarClear(StringHelper::Sprintf("%s.NeutralPitch", mappingCvarKey.c_str()).c_str());
     CVarClear(StringHelper::Sprintf("%s.NeutralYaw", mappingCvarKey.c_str()).c_str());
@@ -130,10 +160,6 @@ void SDLGyroMapping::GetAndroidGyroData(float gyroData[3]){
 #endif
 
 std::string SDLGyroMapping::GetPhysicalDeviceName() {
-    return GetSDLDeviceName();
-}
-
-bool SDLGyroMapping::PhysicalDeviceIsConnected() {
-    return ControllerLoaded();
+    return "SDL Gamepad";
 }
 } // namespace Ship

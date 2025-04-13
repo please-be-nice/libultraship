@@ -14,10 +14,7 @@
 #include <fstream>
 
 namespace Fast {
-Fast3dWindow::Fast3dWindow() : Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>>()) {
-}
-
-Fast3dWindow::Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>> guiWindows) : Ship::Window(guiWindows) {
+Fast3dWindow::Fast3dWindow(std::shared_ptr<Ship::Gui> gui) : Ship::Window(gui) {
     mWindowManagerApi = nullptr;
     mRenderingApi = nullptr;
 
@@ -30,6 +27,13 @@ Fast3dWindow::Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>> guiWind
     }
 #endif
     AddAvailableWindowBackend(Ship::WindowBackend::FAST3D_SDL_OPENGL);
+}
+
+Fast3dWindow::Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>> guiWindows)
+    : Fast3dWindow(std::make_shared<Ship::Gui>(guiWindows)) {
+}
+
+Fast3dWindow::Fast3dWindow() : Fast3dWindow(std::vector<std::shared_ptr<Ship::GuiWindow>>()) {
 }
 
 Fast3dWindow::~Fast3dWindow() {
@@ -82,6 +86,7 @@ void Fast3dWindow::Init() {
              height, posX, posY);
     mWindowManagerApi->set_fullscreen_changed_callback(OnFullscreenChanged);
     mWindowManagerApi->set_keyboard_callbacks(KeyDown, KeyUp, AllKeysUp);
+    mWindowManagerApi->set_mouse_callbacks(MouseButtonDown, MouseButtonUp);
 
     SetTextureFilter((FilteringMode)CVarGetInteger(CVAR_TEXTURE_FILTER, FILTER_THREE_POINT));
 }
@@ -151,6 +156,38 @@ void Fast3dWindow::StartFrame() {
 }
 
 void Fast3dWindow::EndFrame() {
+    gfx_end_frame();
+}
+
+bool Fast3dWindow::IsFrameReady() {
+    return mWindowManagerApi->is_frame_ready();
+}
+
+bool Fast3dWindow::DrawAndRunGraphicsCommands(Gfx* commands, const std::unordered_map<Mtx*, MtxF>& mtxReplacements) {
+    std::shared_ptr<Window> wnd = Ship::Context::GetInstance()->GetWindow();
+
+    // Skip dropped frames
+    if (!wnd->IsFrameReady()) {
+        return false;
+    }
+
+    auto gui = wnd->GetGui();
+    // Setup of the backend frames and draw initial Window and GUI menus
+    gui->StartDraw();
+    // Setup game framebuffers to match available window space
+    gfx_start_frame();
+    // Execute the games gfx commands
+    gfx_run(commands, mtxReplacements);
+    // Renders the game frame buffer to the final window and finishes the GUI
+    gui->EndDraw();
+    // Finalize swap buffers
+    gfx_end_frame();
+
+    return true;
+}
+
+void Fast3dWindow::HandleEvents() {
+    mWindowManagerApi->handle_events();
 }
 
 void Fast3dWindow::SetCursorVisibility(bool visible) {
@@ -185,6 +222,40 @@ int32_t Fast3dWindow::GetPosY() {
     return posY;
 }
 
+void Fast3dWindow::SetMousePos(Ship::Coords pos) {
+    mWindowManagerApi->set_mouse_pos(pos.x, pos.y);
+}
+
+Ship::Coords Fast3dWindow::GetMousePos() {
+    int32_t x, y;
+    mWindowManagerApi->get_mouse_pos(&x, &y);
+    return { x, y };
+}
+
+Ship::Coords Fast3dWindow::GetMouseDelta() {
+    int32_t x, y;
+    mWindowManagerApi->get_mouse_delta(&x, &y);
+    return { x, y };
+}
+
+Ship::CoordsF Fast3dWindow::GetMouseWheel() {
+    float x, y;
+    mWindowManagerApi->get_mouse_wheel(&x, &y);
+    return { x, y };
+}
+
+bool Fast3dWindow::GetMouseState(Ship::MouseBtn btn) {
+    return mWindowManagerApi->get_mouse_state(static_cast<uint32_t>(btn));
+}
+
+void Fast3dWindow::SetMouseCapture(bool capture) {
+    mWindowManagerApi->set_mouse_capture(capture);
+}
+
+bool Fast3dWindow::IsMouseCaptured() {
+    return mWindowManagerApi->is_mouse_captured();
+}
+
 uint32_t Fast3dWindow::GetCurrentRefreshRate() {
     uint32_t refreshRate;
     mWindowManagerApi->get_active_window_refresh_rate(&refreshRate);
@@ -192,8 +263,11 @@ uint32_t Fast3dWindow::GetCurrentRefreshRate() {
 }
 
 bool Fast3dWindow::SupportsWindowedFullscreen() {
-    if (GetWindowBackend() == Ship::WindowBackend::FAST3D_SDL_OPENGL ||
-        GetWindowBackend() == Ship::WindowBackend::FAST3D_SDL_METAL) {
+#ifdef __APPLE__
+    return false;
+#endif
+
+    if (GetWindowBackend() == Ship::WindowBackend::FAST3D_SDL_OPENGL) {
         return true;
     }
 
@@ -213,6 +287,7 @@ void Fast3dWindow::SetMsaaLevel(uint32_t value) {
 }
 
 void Fast3dWindow::SetFullscreen(bool isFullscreen) {
+    // Save current window position before fullscreening
     SaveWindowToConfig();
     mWindowManagerApi->set_fullscreen(isFullscreen);
 }
@@ -235,6 +310,12 @@ bool Fast3dWindow::KeyUp(int32_t scancode) {
         Ship::Context::GetInstance()->GetWindow()->ToggleFullscreen();
     }
 
+    if (scancode ==
+        Ship::Context::GetInstance()->GetConfig()->GetInt("Shortcuts.MouseCapture", Ship::KbScancode::LUS_KB_F2)) {
+        bool captureState = Ship::Context::GetInstance()->GetWindow()->IsMouseCaptured();
+        Ship::Context::GetInstance()->GetWindow()->SetMouseCapture(!captureState);
+    }
+
     Ship::Context::GetInstance()->GetWindow()->SetLastScancode(-1);
     return Ship::Context::GetInstance()->GetControlDeck()->ProcessKeyboardEvent(
         Ship::KbEventType::LUS_KB_EVENT_KEY_UP, static_cast<Ship::KbScancode>(scancode));
@@ -248,20 +329,33 @@ bool Fast3dWindow::KeyDown(int32_t scancode) {
     return isProcessed;
 }
 
-void Fast3dWindow::AllKeysUp(void) {
+void Fast3dWindow::AllKeysUp() {
     Ship::Context::GetInstance()->GetControlDeck()->ProcessKeyboardEvent(Ship::KbEventType::LUS_KB_EVENT_ALL_KEYS_UP,
                                                                          Ship::KbScancode::LUS_KB_UNKNOWN);
+}
+
+bool Fast3dWindow::MouseButtonUp(int button) {
+    return Ship::Context::GetInstance()->GetControlDeck()->ProcessMouseButtonEvent(false,
+                                                                                   static_cast<Ship::MouseBtn>(button));
+}
+
+bool Fast3dWindow::MouseButtonDown(int button) {
+    bool isProcessed = Ship::Context::GetInstance()->GetControlDeck()->ProcessMouseButtonEvent(
+        true, static_cast<Ship::MouseBtn>(button));
+    return isProcessed;
 }
 
 void Fast3dWindow::OnFullscreenChanged(bool isNowFullscreen) {
     std::shared_ptr<Window> wnd = Ship::Context::GetInstance()->GetWindow();
 
     if (isNowFullscreen) {
-        auto menuBar = wnd->GetGui()->GetMenuBar();
-        wnd->SetCursorVisibility(menuBar && menuBar->IsVisible() || wnd->ShouldForceCursorVisibility() ||
-                                 CVarGetInteger("gWindows.Menu", 0));
+        auto menuVisible = wnd->GetGui()->GetMenuOrMenubarVisible();
+        wnd->SetMouseCapture(!(menuVisible || wnd->ShouldForceCursorVisibility()));
     } else {
-        wnd->SetCursorVisibility(true);
+        wnd->SetMouseCapture(false);
     }
+
+    // Re-save fullscreen enabled after
+    Ship::Context::GetInstance()->GetConfig()->SetBool("Window.Fullscreen.Enabled", isNowFullscreen);
 }
 } // namespace Fast

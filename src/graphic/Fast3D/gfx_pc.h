@@ -22,8 +22,11 @@
 #define SCREEN_WIDTH 320
 #define SCREEN_HEIGHT 240
 
-extern uintptr_t gSegmentPointers[];
+#define MAX_SEGMENT_POINTERS 16
+
+extern uintptr_t gSegmentPointers[MAX_SEGMENT_POINTERS];
 extern uintptr_t gfxFramebuffer;
+extern int gInterpolationIndex;
 
 struct GfxRenderingAPI;
 struct GfxWindowManagerAPI;
@@ -113,8 +116,14 @@ struct LoadedVertex {
 struct RawTexMetadata {
     uint16_t width, height;
     float h_byte_scale = 1, v_pixel_scale = 1;
-    std::shared_ptr<LUS::Texture> resource;
-    LUS::TextureType type;
+    std::shared_ptr<Fast::Texture> resource;
+    Fast::TextureType type;
+};
+
+struct ShaderMod {
+    bool enabled = false;
+    int16_t id;
+    uint8_t type;
 };
 
 #define MAX_BUFFERED 256
@@ -174,8 +183,8 @@ struct RDP {
         uint8_t siz;
         uint8_t cms, cmt;
         uint8_t shifts, shiftt;
-        uint16_t uls, ult, lrs, lrt; // U10.2
-        uint16_t tmem;               // 0-511, in 64-bit word units
+        float uls, ult, lrs, lrt; // U10.2
+        uint16_t tmem;            // 0-511, in 64-bit word units
         uint32_t line_size_bytes;
         uint8_t palette;
         uint8_t tmem_index; // 0 or 1 for offset 0 kB or offset 2 kB, respectively
@@ -187,6 +196,7 @@ struct RDP {
     uint32_t other_mode_l, other_mode_h;
     uint64_t combine_mode;
     bool grayscale;
+    ShaderMod current_shader;
 
     uint8_t prim_lod_fraction;
     struct RGBA env_color, prim_color, fog_color, fill_color, grayscale_color;
@@ -197,7 +207,7 @@ struct RDP {
 };
 
 typedef enum Attribute {
-    MTX_PROJECTION,
+    MTX_PROJECTION = 0,
     MTX_LOAD,
     MTX_PUSH,
     MTX_NOPUSH,
@@ -229,13 +239,15 @@ extern uint32_t gfx_msaa_level;
 void gfx_init(struct GfxWindowManagerAPI* wapi, struct GfxRenderingAPI* rapi, const char* game_name,
               bool start_in_fullscreen, uint32_t width = SCREEN_WIDTH, uint32_t height = SCREEN_HEIGHT,
               uint32_t posX = 100, uint32_t posY = 100);
-void gfx_destroy(void);
-struct GfxRenderingAPI* gfx_get_current_rendering_api(void);
-void gfx_start_frame(void);
+void gfx_destroy();
+struct GfxRenderingAPI* gfx_get_current_rendering_api();
+void gfx_start_frame();
 
 // Since this function is "exposted" to the games, it needs to take a normal Gfx
 void gfx_run(Gfx* commands, const std::unordered_map<Mtx*, MtxF>& mtx_replacements);
-void gfx_end_frame(void);
+void gfx_handle_window_events();
+bool gfx_is_frame_ready();
+void gfx_end_frame();
 void gfx_set_target_ucode(UcodeHandlers ucode);
 void gfx_set_target_fps(int);
 void gfx_set_maximum_frame_latency(int latency);

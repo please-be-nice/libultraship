@@ -101,6 +101,13 @@ else()
     list(REMOVE_ITEM Header_Files__include ${CMAKE_CURRENT_SOURCE_DIR}/utils/AppleFolderManager.h)
 endif()
 
+if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
+    list(APPEND Source_Files__Utils ${CMAKE_CURRENT_SOURCE_DIR}/utils/macUtils.mm)
+    set_source_files_properties(${CMAKE_CURRENT_SOURCE_DIR}/utils/macUtils.mm PROPERTIES COMPILE_FLAGS -fno-objc-arc)
+else()
+    list(REMOVE_ITEM Header_Files__include ${CMAKE_CURRENT_SOURCE_DIR}/utils/macUtils.h)
+endif()
+
 source_group("utils" FILES ${Source_Files__Utils})
 target_sources(libultraship PRIVATE ${Source_Files__Utils})
 
@@ -165,7 +172,7 @@ target_include_directories(libultraship
 
 #=================== Linking ===================
 if(NOT EXCLUDE_MPQ_SUPPORT)
-    if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows")
+    if (NOT CMAKE_SYSTEM_NAME STREQUAL "Windows" AND NOT CMAKE_SYSTEM_NAME STREQUAL "iOS")
         target_link_libraries(libultraship PUBLIC "$<LINK_LIBRARY:WHOLE_ARCHIVE,storm>")
     else()
         target_link_libraries(libultraship PUBLIC storm)
@@ -198,6 +205,9 @@ if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
     set(THREADS_PREFER_PTHREAD_FLAG ON)
     find_package(Threads REQUIRED)
     target_link_libraries(libultraship PRIVATE Threads::Threads)
+    find_library(COCOA Cocoa)
+    target_link_libraries(libultraship PRIVATE ${COCOA})
+
 endif()
 
 if (CMAKE_SYSTEM_NAME STREQUAL "Darwin" OR CMAKE_SYSTEM_NAME STREQUAL "iOS")
@@ -217,6 +227,8 @@ if (USE_OPENGLES)
         target_link_libraries(libultraship PRIVATE GLESv2)
     endif()
 endif()
+
+target_link_libraries(libultraship PUBLIC prism)
 
 #=================== Compile Options & Defs ===================
 
@@ -316,7 +328,12 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU|Clang")
 		-Wno-parentheses
 		-Wno-narrowing
 		-Wno-missing-field-initializers
-        -Wno-implicit-function-declaration
+        $<$<COMPILE_LANGUAGE:C,OBJC>:-Wno-implicit-function-declaration>
         $<$<COMPILE_LANGUAGE:C,OBJC>:-Wno-int-conversion>
 	)
+    if (MSVC)
+    target_compile_options(libultraship PRIVATE
+        -Wno-implicit-function-declaration
+    )
+    endif()
 endif()
