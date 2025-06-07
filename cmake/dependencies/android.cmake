@@ -6,7 +6,7 @@ if (NOT ${SDL2_FOUND})
     FetchContent_Declare(
         SDL2
         GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-        GIT_TAG release-2.30.5
+        GIT_TAG release-2.32.8
         OVERRIDE_FIND_PACKAGE
     )
     FetchContent_MakeAvailable(SDL2)
