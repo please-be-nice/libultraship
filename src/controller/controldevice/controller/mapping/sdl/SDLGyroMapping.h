@@ -15,6 +15,7 @@ class SDLGyroMapping final : public ControllerGyroMapping {
 
   private:
 #ifdef __ANDROID__
+    SDL_Sensor* gyroSensor = nullptr;
     void GetAndroidGyroData(float gyroData[3]);
 #endif
     float mNeutralPitch;

@@ -19,35 +19,28 @@ void SDLGyroMapping::Recalibrate() {
          Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
              mPortIndex)) {
         if (!SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)) {
+#ifndef __ANDROID__
             continue;
+#endif
         }
 
         // just use gyro on the first gyro supported device we find
         float gyroData[3];
+#ifdef __ANDROID__
+        GetAndroidGyroData(gyroData);
+#else
         SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE);
         SDL_GameControllerGetSensorData(gamepad, SDL_SENSOR_GYRO, gyroData, 3);
+#endif
 
         mNeutralPitch = gyroData[0];
         mNeutralYaw = gyroData[1];
         mNeutralRoll = gyroData[2];
         return;
     }
-
-    float gyroData[3];
-#ifdef __ANDROID__
-    GetAndroidGyroData(gyroData);
-#else
-    SDL_GameControllerSetSensorEnabled(mController, SDL_SENSOR_GYRO, SDL_TRUE);
-    SDL_GameControllerGetSensorData(mController, SDL_SENSOR_GYRO, gyroData, 3);
-    // if we didn't find a gyro device zero everything out
     mNeutralPitch = 0;
     mNeutralYaw = 0;
     mNeutralRoll = 0;
-#endif
-
-    mNeutralPitch = gyroData[0];
-    mNeutralYaw = gyroData[1];
-    mNeutralRoll = gyroData[2];
 }
 
 void SDLGyroMapping::UpdatePad(float& x, float& y) {
@@ -57,24 +50,23 @@ void SDLGyroMapping::UpdatePad(float& x, float& y) {
         return;
     }
 
-    float gyroData[3];
-#ifdef __ANDROID__
-    GetAndroidGyroData(gyroData);
-#else
-    SDL_GameControllerSetSensorEnabled(mController, SDL_SENSOR_GYRO, SDL_TRUE);
-    SDL_GameControllerGetSensorData(mController, SDL_SENSOR_GYRO, gyroData, 3);
     for (const auto& [instanceId, gamepad] :
          Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
              mPortIndex)) {
         if (!SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)) {
-            continue;
-        }
+#ifndef __ANDROID__
+            continue
 #endif
+        }
 
         // just use gyro on the first gyro supported device we find
         float gyroData[3];
+#ifdef __ANDROID__
+        GetAndroidGyroData(gyroData);
+#else
         SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE);
         SDL_GameControllerGetSensorData(gamepad, SDL_SENSOR_GYRO, gyroData, 3);
+#endif
 
         x = (gyroData[0] - mNeutralPitch) * mSensitivity;
         y = (gyroData[1] - mNeutralYaw) * mSensitivity;
@@ -116,9 +108,14 @@ void SDLGyroMapping::EraseFromConfig() {
 
 #ifdef __ANDROID__
 void SDLGyroMapping::GetAndroidGyroData(float gyroData[3]){
-    if(SDL_GameControllerHasSensor(mController, SDL_SENSOR_GYRO)) { // get data from controller if supported
-        SDL_GameControllerSetSensorEnabled(mController, SDL_SENSOR_GYRO, SDL_TRUE);
-        SDL_GameControllerGetSensorData(mController, SDL_SENSOR_GYRO, gyroData, 3);
+    for (const auto& [instanceId, gamepad] :
+         Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
+             mPortIndex)) {
+        if (!SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)) {
+            continue;
+        }
+        SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE);
+        SDL_GameControllerGetSensorData(gamepad, SDL_SENSOR_GYRO, gyroData, 3);
         return;
     }
 

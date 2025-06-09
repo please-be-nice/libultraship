@@ -36,39 +36,14 @@ std::shared_ptr<ControllerGyroMapping> GyroMappingFactory::CreateGyroMappingFrom
     std::shared_ptr<ControllerGyroMapping> mapping = nullptr;
 
     for (auto [instanceId, gamepad] :
-         Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
-             portIndex)) {
+            Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
+                    portIndex)) {
         if (!SDL_GameControllerHasSensor(gamepad, SDL_SENSOR_GYRO)) {
+#ifndef __ANDROID__
             continue;
-        }
-        auto sdlIndex = sdlIndexMapping->GetSDLDeviceIndex();
-
-        if (!SDL_IsGameController(sdlIndex)) {
-            // this SDL device isn't a game controller
-            continue;
-        }
-
-        auto controller = SDL_GameControllerOpen(sdlIndex);
-        if (SDL_GameControllerHasSensor(controller, SDL_SENSOR_GYRO)) {
-            sdlControllersWithGyro[lusIndex] = SDL_GameControllerOpen(sdlIndex);
-        } else {
-#ifdef __ANDROID__
-            for (int i = 0; i<SDL_NumSensors();i++) {
-                if (SDL_SensorGetDeviceType(i) == SDL_SENSOR_GYRO) {
-                    sdlControllersWithGyro[lusIndex] = SDL_GameControllerOpen(sdlIndex);
-                    break;
-                }
-            }
-            if(sdlControllersWithGyro[lusIndex] == nullptr){
-                SDL_GameControllerClose(controller);
-            }
-#else
-            SDL_GameControllerClose(controller);
 #endif
         }
-    }
 
-    for (auto [lusIndex, controller] : sdlControllersWithGyro) {
         for (int32_t button = SDL_CONTROLLER_BUTTON_A; button < SDL_CONTROLLER_BUTTON_MAX; button++) {
             if (SDL_GameControllerGetButton(gamepad, static_cast<SDL_GameControllerButton>(button))) {
                 mapping = std::make_shared<SDLGyroMapping>(portIndex, 1.0f, 0.0f, 0.0f, 0.0f);
