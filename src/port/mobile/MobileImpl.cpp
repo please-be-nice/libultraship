@@ -91,7 +91,7 @@ extern "C" void JNICALL Java_com_dishii_soh_MainActivity_attachController(JNIEnv
     isUsingTouchscreenControls = true;
 }
 
-extern "C" void JNICALL Java_com_dishii_soh_MainActivity_setCameraState(JNIEnv *env, jobject jobj, jint axis, jfloat value) {
+/*extern "C" void JNICALL Java_com_dishii_soh_MainActivity_setCameraState(JNIEnv *env, jobject jobj, jint axis, jfloat value) {
     switch(axis){
         case 0:
             cameraYaw=value;
@@ -101,6 +101,7 @@ extern "C" void JNICALL Java_com_dishii_soh_MainActivity_setCameraState(JNIEnv *
             break;
     }
 }
+*/
 
 extern "C" void JNICALL Java_com_dishii_soh_MainActivity_setButton(JNIEnv *env, jobject jobj, jint button, jboolean value) {
     if(button < 0){
