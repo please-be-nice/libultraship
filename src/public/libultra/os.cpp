@@ -29,6 +29,11 @@ int32_t osContInit(OSMesgQueue* mq, uint8_t* controllerBits, OSContStatus* statu
         exit(EXIT_FAILURE);
     }
 
+#ifdef __ANDROID__
+    if(!SDL_WasInit(SDL_INIT_SENSOR))
+        SDL_Init(SDL_INIT_SENSOR);
+#endif
+
     Ship::Context::GetInstance()->GetControlDeck()->Init(controllerBits);
 
     return 0;
