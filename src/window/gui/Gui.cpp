@@ -56,6 +56,9 @@ namespace Ship {
 
 #define TOGGLE_BTN ImGuiKey_F1
 #define TOGGLE_PAD_BTN ImGuiKey_GamepadBack
+#if defined(__ANDROID__)
+#define TOGGLE_BACK_BTN ImGuiKey_AppBack
+#endif
 
 Gui::Gui(std::vector<std::shared_ptr<GuiWindow>> guiWindows) : mNeedsConsoleVariableSave(false) {
     mGameOverlay = std::make_shared<GameOverlay>();
@@ -484,6 +487,42 @@ void Gui::DrawMenu() {
 
     ImGui::DockSpace(dockId, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_None | ImGuiDockNodeFlags_NoDockingInCentralNode);
 
+#if defined(__ANDROID__)
+    bool anyMenuKeyPressed = (
+        ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
+        ImGui::IsKeyPressed(TOGGLE_BACK_BTN, false) ||
+        ImGui::IsKeyPressed(TOGGLE_BTN, false) ||
+        (ImGui::IsKeyPressed(TOGGLE_PAD_BTN, false) && CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0))
+    );
+
+    if (anyMenuKeyPressed) {
+        // Open Menu if any Menu key is pressed and the Menu is available
+        // If Menu is not available, open Menu Bar if it is available
+        if (GetMenu()) {
+            GetMenu()->ToggleVisibility();
+        }
+        else if (GetMenuBar()) {
+            GetMenuBar()->ToggleVisibility();
+        }
+
+        if (wnd->IsFullscreen()) {
+            Context::GetInstance()->GetWindow()->SetMouseCapture(
+                !(GetMenuOrMenubarVisible() || wnd->ShouldForceCursorVisibility()));
+        }
+
+        if (CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) && GetMenuOrMenubarVisible()) {
+            mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
+        } else {
+            mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
+        }
+
+        if(GetMenuOrMenubarVisible()) {
+            Ship::Mobile::DisableTouchArea();
+        } else {
+            Ship::Mobile::EnableTouchArea();
+        }
+    }
+#else
     if (ImGui::IsKeyPressed(TOGGLE_BTN, false) || ImGui::IsKeyPressed(ImGuiKey_Escape, false) ||
         (ImGui::IsKeyPressed(TOGGLE_PAD_BTN, false) && CVarGetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0))) {
         if ((ImGui::IsKeyPressed(ImGuiKey_Escape, false) || ImGui::IsKeyPressed(TOGGLE_PAD_BTN, false)) && GetMenu()) {
@@ -501,14 +540,8 @@ void Gui::DrawMenu() {
         } else {
             mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
         }
-#ifdef __ANDROID__
-        if(GetMenuOrMenubarVisible()){
-            Ship::Mobile::DisableTouchArea();
-        }else{
-            Ship::Mobile::EnableTouchArea();
-        }
-#endif
     }
+#endif
 
     // Mac interprets this as cmd+r when io.ConfigMacOSXBehavior is on (on by default)
     if ((ImGui::IsKeyDown(ImGuiKey_LeftCtrl) || ImGui::IsKeyDown(ImGuiKey_RightCtrl)) &&
