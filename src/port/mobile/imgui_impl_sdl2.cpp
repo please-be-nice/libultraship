@@ -132,6 +132,10 @@
 static const Uint32 SDL_WINDOW_VULKAN = 0x10000000;
 #endif
 
+#if defined(__ANDROID__)
+#include "MobileImpl.h"
+#endif
+
 // SDL Data
 struct ImGui_ImplSDL2_Data
 {
@@ -805,6 +809,24 @@ static void ImGui_ImplSDL2_UpdateGamepads()
     {
         ImGui_ImplSDL2_CloseGamepads();
         int joystick_count = SDL_NumJoysticks();
+#if defined(__ANDROID__)
+        for (int n = 0; n < joystick_count; n++)
+        {
+            const char* gamepad_name = SDL_GameControllerNameForIndex(n);
+            if (Ship::Mobile::IsInvalidGamepad(gamepad_name))
+            {   continue;   }
+
+            if (SDL_IsGameController(n))
+            {
+                if (SDL_GameController* gamepad = SDL_GameControllerOpen(n))
+                {
+                    bd->Gamepads.push_back(gamepad);
+                    if (bd->GamepadMode == ImGui_ImplSDL2_GamepadMode_AutoFirst)
+                    {   break;   }
+                }
+            }
+        }
+#else
         for (int n = 0; n < joystick_count; n++)
             if (SDL_IsGameController(n))
                 if (SDL_GameController* gamepad = SDL_GameControllerOpen(n))
@@ -813,6 +835,7 @@ static void ImGui_ImplSDL2_UpdateGamepads()
                     if (bd->GamepadMode == ImGui_ImplSDL2_GamepadMode_AutoFirst)
                         break;
                 }
+#endif
         bd->WantUpdateGamepadsList = false;
     }
 

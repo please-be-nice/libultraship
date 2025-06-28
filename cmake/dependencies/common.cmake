@@ -38,8 +38,8 @@ else()
     target_sources(ImGui
         PRIVATE
         ${imgui_SOURCE_DIR}/backends/imgui_impl_opengl3.cpp
-        ${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
-        #${CMAKE_CURRENT_SOURCE_DIR}/src/port/mobile/imgui_impl_sdl2.cpp # Custom implementation
+        #${imgui_SOURCE_DIR}/backends/imgui_impl_sdl2.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/port/mobile/imgui_impl_sdl2.cpp # Custom implementation
     )
 endif()
 

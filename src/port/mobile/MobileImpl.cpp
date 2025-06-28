@@ -74,6 +74,43 @@ float Ship::Mobile::GetCameraPitch(){
     return cameraPitch;
 }
 
+/**
+ * @details Some Android device manufacturer drivers for internal sensors
+ * reports the sensor as a generic input in the kernel, causing SDL to wrongly
+ * detects them as "gamepads".
+ * An example of this are some Xiaomi devices which fingerprint sensor is
+ * detected as a gamepad with the identifier "uinput-fpc", but there are more
+ * devices and sensors that could also be wrongly detected.
+ * Related:
+ * https://github.com/godotengine/godot/issues/47656
+ */
+bool Ship::Mobile::IsInvalidGamepad(const char* gamepad_name)
+{
+    static const char* device_deny_list[] =
+    {
+        "uinput-fpc",       // Fingerprint sensor by FPC
+        "uinput-fortsense", // Fingerprint sensor by Fortsense
+        "uinput-goodix",    // Fingerprint sensor by Goodix
+        "uinput-synaptics", // Fingerprint sensor by Synaptics
+        "uinput-elan",      // Fingerprint sensor by ElanTech
+        "uinput-vfs",       // Fingerprint sensor by Validity
+        "uinput-atrus",     // Fingerprint sensor by Atrua
+        // ...
+        nullptr
+    };
+
+    if ( (gamepad_name == nullptr) || (gamepad_name[0] == '\0') )
+    {   return true;   }
+
+    for (int i = 0; device_deny_list[i] != nullptr; ++i)
+    {
+        if (strstr(gamepad_name, device_deny_list[i]))
+        {   return true;   }
+    }
+
+    return false;
+}
+
 static int virtual_joystick_id = -1;
 static SDL_Joystick *virtual_joystick = nullptr;
 
