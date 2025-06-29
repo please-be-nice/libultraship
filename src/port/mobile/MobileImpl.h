@@ -17,5 +17,7 @@ class Mobile {
     static void DisableTouchArea();
     static float GetCameraYaw();
     static float GetCameraPitch();
+    static bool IsInvalidGamepad(const char* gamepad_name);
 };
+
 }; // namespace Ship

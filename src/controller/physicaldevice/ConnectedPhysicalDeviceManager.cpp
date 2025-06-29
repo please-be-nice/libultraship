@@ -1,5 +1,9 @@
 #include "ConnectedPhysicalDeviceManager.h"
 
+#if defined(__ANDROID__)
+#include "port/mobile/MobileImpl.h"
+#endif
+
 namespace Ship {
 ConnectedPhysicalDeviceManager::ConnectedPhysicalDeviceManager() {
 }
@@ -53,6 +57,14 @@ void ConnectedPhysicalDeviceManager::RefreshConnectedSDLGamepads() {
     mConnectedSDLGamepadNames.clear();
 
     for (int32_t i = 0; i < SDL_NumJoysticks(); i++) {
+
+#if defined(__ANDROID__)
+        // skip if invalid SDL Gamepad
+        const char* gamepadName = SDL_GameControllerNameForIndex(i);
+        if (Ship::Mobile::IsInvalidGamepad(gamepadName))
+        {   continue;   }
+#endif
+
         // skip if this SDL joystick isn't a Gamepad
         if (!SDL_IsGameController(i)) {
             continue;
