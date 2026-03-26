@@ -28,6 +28,18 @@ void ControlDeck::Init(uint8_t* controllerBits) {
     for (auto port : mPorts) {
         if (port->GetConnectedController()->HasConfig()) {
             port->GetConnectedController()->ReloadAllMappingsFromConfig();
+
+            // HasConfig being true prevents AddDefaultMappings from running, but the right
+            // stick axis direction mappings (which write right_stick_x/y for free look) can
+            // still be empty if the user previously cleared them. Restore SDL defaults for
+            // the right stick if nothing loaded for it, so free look works without requiring
+            // a full config wipe.
+            auto rightStick = port->GetConnectedController()->GetRightStick();
+            if (!rightStick->HasMappingsForPhysicalDeviceType(PhysicalDeviceType::SDLGamepad) &&
+                !rightStick->HasMappingsForPhysicalDeviceType(PhysicalDeviceType::Keyboard) &&
+                !rightStick->HasMappingsForPhysicalDeviceType(PhysicalDeviceType::Mouse)) {
+                rightStick->AddDefaultMappings(PhysicalDeviceType::SDLGamepad);
+            }
         }
     }
 

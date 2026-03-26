@@ -15,6 +15,7 @@ class Mobile {
     static bool IsUsingTouchscreenControls();
     static void EnableTouchArea();
     static void DisableTouchArea();
+    static void SetToggleButtonVisible(bool visible);
     static float GetCameraYaw();
     static float GetCameraPitch();
     static bool IsInvalidGamepad(const char* gamepad_name);

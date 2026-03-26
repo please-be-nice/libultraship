@@ -1156,6 +1156,19 @@ void InputEditorWindow::DrawGyroSection(uint8_t port) {
             mapping->Recalibrate();
             mapping->SaveToConfig();
         }
+
+#ifdef __ANDROID__
+        ImGui::Separator();
+        bool handheldGyroMode = CVarGetInteger("gDroidHandheldGyro", 0) != 0;
+        if (ImGui::Checkbox("Handheld Gyro Mode##HandheldGyroMode", &handheldGyroMode)) {
+            CVarSetInteger("gDroidHandheldGyro", handheldGyroMode ? 1 : 0);
+            CVarSave();
+        }
+        if (ImGui::IsItemHovered()) {
+            ImGui::SetTooltip("For devices like Retroid Mini: maps Z-axis to vertical aiming\ninstead of using standard portrait/landscape orientation logic");
+        }
+#endif
+
         ImGui::EndGroup();
         ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPos().x, ImGui::GetCursorPos().y - SCALE_IMGUI_SIZE(8)));
     } else {

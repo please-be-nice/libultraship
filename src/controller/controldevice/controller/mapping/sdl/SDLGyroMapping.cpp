@@ -108,6 +108,7 @@ void SDLGyroMapping::EraseFromConfig() {
 
 #ifdef __ANDROID__
 void SDLGyroMapping::GetAndroidGyroData(float gyroData[3]){
+    bool foundGamepadGyro = false;
     for (const auto& [instanceId, gamepad] :
          Context::GetInstance()->GetControlDeck()->GetConnectedPhysicalDeviceManager()->GetConnectedSDLGamepadsForPort(
              mPortIndex)) {
@@ -116,42 +117,68 @@ void SDLGyroMapping::GetAndroidGyroData(float gyroData[3]){
         }
         SDL_GameControllerSetSensorEnabled(gamepad, SDL_SENSOR_GYRO, SDL_TRUE);
         SDL_GameControllerGetSensorData(gamepad, SDL_SENSOR_GYRO, gyroData, 3);
-        return;
+        foundGamepadGyro = true;
+        break;
     }
 
-    if(gyroSensor == nullptr){ // populate gyroSensor variable if it hasn't been created yet
-        for (int i = 0; i<SDL_NumSensors();i++) {
-            if (SDL_SensorGetDeviceType(i) == SDL_SENSOR_GYRO) {
-                gyroSensor = SDL_SensorOpen(i);
-                break;
+    if (!foundGamepadGyro) {
+        // Fall back to raw SDL sensor (e.g. device gyro not exposed via GameController API)
+        if (gyroSensor == nullptr) {
+            for (int i = 0; i < SDL_NumSensors(); i++) {
+                if (SDL_SensorGetDeviceType(i) == SDL_SENSOR_GYRO) {
+                    gyroSensor = SDL_SensorOpen(i);
+                    break;
+                }
             }
         }
-    }
 
-    SDL_SensorUpdate();
-    SDL_SensorGetData(gyroSensor, gyroData, 3);
+        if (gyroSensor == nullptr) {
+            gyroData[0] = 0;
+            gyroData[1] = 0;
+            gyroData[2] = 0;
+            return;
+        }
+
+        SDL_SensorUpdate();
+        SDL_SensorGetData(gyroSensor, gyroData, 3);
+    }
 
     float gyroX = gyroData[0];
     float gyroY = gyroData[1];
-    switch(SDL_GetDisplayOrientation(0)){
-        case(SDL_ORIENTATION_PORTRAIT):
-            // nothing to do
-            break;
-        case(SDL_ORIENTATION_PORTRAIT_FLIPPED):
-            gyroData[0] = -gyroX;
-            gyroData[1] = -gyroY;
-            break;
-        case(SDL_ORIENTATION_LANDSCAPE):
-            gyroData[0] = -gyroY;
-            gyroData[1] = gyroX;
-            break;
-        case(SDL_ORIENTATION_LANDSCAPE_FLIPPED):
-            gyroData[0] = gyroY;
-            gyroData[1] = -gyroX;
-            break;
-        case(SDL_ORIENTATION_UNKNOWN):
-            // nothing to do
-            break;
+    float gyroZ = gyroData[2];
+
+    // Check if Handheld Gyro Mode is enabled (e.g., for Retroid Mini or similar devices)
+    if (CVarGetInteger("gDroidHandheldGyro", 0)) {
+        // gyroData[0] -> gyro_x -> camera U/D (pitch)
+        // gyroData[1] -> gyro_y -> camera L/R (yaw)
+        // Device axes: gyroX=roll, gyroY=pitch, gyroZ=yaw/steering
+        // Base 5x compensates for pitch gyro reporting smaller values than roll
+        float pitchScale = 5.0f * CVarGetInteger("gDroidHandheldPitchScale", 100) / 100.0f;
+        gyroData[0] = -gyroY * pitchScale;
+        gyroData[1] = gyroX;
+    } else {
+        // Standard SDL orientation-based remapping
+        switch (SDL_GetDisplayOrientation(0)) {
+            case SDL_ORIENTATION_PORTRAIT:
+                // nothing to do
+                break;
+            case SDL_ORIENTATION_PORTRAIT_FLIPPED:
+                gyroData[0] = -gyroX;
+                gyroData[1] = -gyroY;
+                break;
+            case SDL_ORIENTATION_LANDSCAPE:
+                gyroData[0] = -gyroY;
+                gyroData[1] = gyroX;
+                break;
+            case SDL_ORIENTATION_LANDSCAPE_FLIPPED:
+                gyroData[0] = gyroY;
+                gyroData[1] = -gyroX;
+                break;
+            case SDL_ORIENTATION_UNKNOWN:
+            default:
+                // nothing to do
+                break;
+        }
     }
 }
 #endif

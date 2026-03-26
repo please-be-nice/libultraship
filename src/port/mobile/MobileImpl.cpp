@@ -35,7 +35,8 @@ void Ship::Mobile::ImGuiProcessEvent(bool wantsTextInput) {
 #include <jni.h>
 
 void Ship::Mobile::Init() {
-    // None (add here Android initialization steps)
+    bool showToggle = CVarGetInteger("gDroidShowToggleButton", 1) != 0;
+    SetToggleButtonVisible(showToggle);
 }
 
 void Ship::Mobile::Exit() {
@@ -64,6 +65,14 @@ void Ship::Mobile::DisableTouchArea(){
     jclass javaClass = env->GetObjectClass(javaObject);
     jmethodID disabletoucharea = env->GetMethodID(javaClass, "DisableTouchArea", "()V");
     env->CallVoidMethod(javaObject, disabletoucharea);
+}
+
+void Ship::Mobile::SetToggleButtonVisible(bool visible){
+    JNIEnv* env = (JNIEnv*)SDL_AndroidGetJNIEnv();
+    jobject javaObject = (jobject)SDL_AndroidGetActivity();
+    jclass javaClass = env->GetObjectClass(javaObject);
+    jmethodID method = env->GetMethodID(javaClass, "SetToggleButtonVisible", "(Z)V");
+    env->CallVoidMethod(javaObject, method, (jboolean)visible);
 }
 
 float Ship::Mobile::GetCameraYaw(){
