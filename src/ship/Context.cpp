@@ -393,7 +393,7 @@ std::string Context::GetShortName() {
 
 std::string Context::GetAppBundlePath() {
 #if defined(__ANDROID__)
-    const char* externaldir = SDL_AndroidGetExternalStoragePath();
+    const char* externaldir = "/storage/emulated/0/SOH";
     if (externaldir != NULL) {
         return externaldir;
     }
@@ -456,7 +456,7 @@ std::string Context::GetAppBundlePath() {
 
 std::string Context::GetAppDirectoryPath(std::string appName) {
 #if defined(__ANDROID__)
-    const char* externaldir = SDL_AndroidGetExternalStoragePath();
+    const char* externaldir = "/storage/emulated/0/SOH";
     if (externaldir != NULL) {
         return externaldir;
     }
