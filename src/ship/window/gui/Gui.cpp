@@ -322,18 +322,12 @@ bool Gui::GamepadNavigationEnabled() {
 
 void Gui::BlockGamepadNavigation() {
     mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
-#if defined(__ANDROID__)
-    mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
-#endif
 }
 
 void Gui::UnblockGamepadNavigation() {
     if (Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) &&
         GetMenuOrMenubarVisible()) {
         mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-#if defined(__ANDROID__)
-        mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
-#endif
     }
 }
 
@@ -566,10 +560,8 @@ void Gui::DrawMenu() {
         if (Ship::Context::GetInstance()->GetConsoleVariables()->GetInteger(CVAR_IMGUI_CONTROLLER_NAV, 0) &&
             GetMenuOrMenubarVisible()) {
             mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;
-            mImGuiIo->ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;
         } else {
             mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableGamepad;
-            mImGuiIo->ConfigFlags &= ~ImGuiConfigFlags_NavEnableKeyboard;
         }
     }
 #else
